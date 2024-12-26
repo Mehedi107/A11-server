@@ -24,12 +24,12 @@ const client = new MongoClient(uri, {
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
-    await client.connect();
+    // await client.connect();
     // Send a ping to confirm a successful connection
-    await client.db('admin').command({ ping: 1 });
-    console.log(
-      'Pinged your deployment. You successfully connected to MongoDB!'
-    );
+    // await client.db('admin').command({ ping: 1 });
+    // console.log(
+    //   'Pinged your deployment. You successfully connected to MongoDB!'
+    // );
 
     const artifactDB = client.db('artifact-vault');
     const artifactsColl = artifactDB.collection('artifacts');
@@ -138,7 +138,6 @@ async function run() {
     });
 
     // Delete artifact form DB
-    // Delete visa info to database
     app.delete('/artifacts/:id', async (req, res) => {
       const id = req.params.id;
       console.log(id);
