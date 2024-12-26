@@ -70,6 +70,82 @@ async function run() {
         res.status(500).send({ message: 'Internal server error' });
       }
     });
+
+    // Save artifact data to DB
+    app.post('/artifacts', async (req, res) => {
+      try {
+        const artifactData = req.body;
+        const result = await artifactsColl.insertOne(artifactData);
+        res.send(result);
+      } catch (error) {
+        res.send(error);
+      }
+    });
+
+    // Update artifact data to DB
+    app.patch('/artifacts/:id/like', async (req, res) => {
+      try {
+        const { id } = req.params;
+        const filter = { _id: new ObjectId(id) };
+        const update = { $inc: { likeCount: 1 } };
+
+        const result = await artifactsColl.findOneAndUpdate(
+          filter,
+          update,
+          { returnDocument: 'after' } // Return the updated document
+        );
+
+        if (result.value) {
+          res.status(200).send(result.value); // Send the updated artifact back
+        } else {
+          res.status(404).send({ error: 'Artifact not found' });
+        }
+      } catch (error) {
+        console.error('Error updating like count:', error);
+        res.status(500).send({ error: 'Server error' });
+      }
+    });
+
+    // fetch user artifact data by email for DB
+    app.get('/my-artifact/:email', async (req, res) => {
+      const userEmail = req.params.email;
+      const filter = { addedByEmail: userEmail };
+      const cursor = artifactsColl.find(filter);
+      const result = await cursor.toArray();
+      res.send(result);
+    });
+
+    // Update user added artifact data in the DB
+    app.put('/artifacts', async (req, res) => {
+      const data = req.body;
+      const filter = { _id: new ObjectId(data.artifactId) };
+      const options = { upsert: true };
+      const updateDoc = {
+        $set: {
+          name: data.name,
+          image: data.image,
+          type: data.type,
+          context: data.context,
+          createdAt: data.createdAt,
+          discoveredAt: data.discoveredAt,
+          discoveredBy: data.discoveredBy,
+          presentLocation: data.presentLocation,
+        },
+      };
+
+      const result = await artifactsColl.updateOne(filter, updateDoc, options);
+      res.send(result);
+    });
+
+    // Delete artifact form DB
+    // Delete visa info to database
+    app.delete('/artifacts/:id', async (req, res) => {
+      const id = req.params.id;
+      console.log(id);
+      const query = { _id: new ObjectId(id) };
+      const result = await artifactsColl.deleteOne(query);
+      res.send(result);
+    });
   } finally {
     // Ensures that the client will close when you finish/error
     // await client.close();
