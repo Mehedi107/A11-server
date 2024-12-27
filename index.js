@@ -2,14 +2,23 @@ import 'dotenv/config';
 import express, { json } from 'express';
 import cors from 'cors';
 import { MongoClient, ObjectId, ServerApiVersion } from 'mongodb';
+import jwt, { decode } from 'jsonwebtoken';
+import cookieParser from 'cookie-parser';
 
 const app = express();
 const port = process.env.PORT || 3000;
 
 // Middleware
-app.use(cors());
-app.use(json());
+const corsOptions = {
+  origin: ['http://localhost:5173'],
+  credentials: true,
+};
 
+app.use(cors(corsOptions));
+app.use(json());
+app.use(cookieParser());
+
+// Mongodb configuration
 const uri = `mongodb+srv://${process.env.USER_NAME}:${process.env.PASSWORD}@cluster0.blfnk.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
@@ -20,6 +29,20 @@ const client = new MongoClient(uri, {
     deprecationErrors: true,
   },
 });
+
+const verifyToken = (req, res, next) => {
+  const token = req.cookies?.token;
+
+  if (!token) return res.status(401).send({ message: 'Unauthorize access' });
+
+  jwt.verify(token, process.env.JWT_SECRET_KEY, (err, decoded) => {
+    if (err) return res.status(401).send({ message: 'Unauthorize access' });
+
+    req.user = decoded;
+  });
+
+  next();
+};
 
 async function run() {
   try {
@@ -33,6 +56,32 @@ async function run() {
 
     const artifactDB = client.db('artifact-vault');
     const artifactsColl = artifactDB.collection('artifacts');
+
+    // Generate JWT Token
+    app.post('/jwt', async (req, res) => {
+      const userEmail = req.body;
+      const token = jwt.sign(userEmail, process.env.JWT_SECRET_KEY, {
+        expiresIn: '365d',
+      });
+      res
+        .cookie('token', token, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
+        })
+        .send({ success: true });
+    });
+
+    // Remove JWT token from cookie
+    app.get('/logout', async (req, res) => {
+      res
+        .clearCookie('token', {
+          maxAge: 0,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
+        })
+        .send({ success: true });
+    });
 
     // Get 6 most liked artifacts data form DB
     app.get('/artifacts', async (req, res) => {
@@ -133,10 +182,14 @@ async function run() {
     });
 
     // Get artifacts liked by user liked
-    app.get('/liked-artifact/:email', async (req, res) => {
+    app.get('/liked-artifact/:email', verifyToken, async (req, res) => {
       try {
+        const decodedEmail = req?.user?.email;
         const email = req.params.email;
-        // console.log('User email:', email);
+
+        if (decodedEmail !== email) {
+          return res.status(401).send({ message: 'Unauthorize access' });
+        }
 
         const artifacts = await artifactsColl
           .find({ likedBy: email })
@@ -152,8 +205,14 @@ async function run() {
     });
 
     // fetch user artifact data by email from DB
-    app.get('/my-artifact/:email', async (req, res) => {
+    app.get('/my-artifact/:email', verifyToken, async (req, res) => {
       const userEmail = req.params.email;
+      const decodedEmail = req?.user?.email;
+
+      if (decodedEmail !== email) {
+        return res.status(401).send({ message: 'Unauthorize access' });
+      }
+
       const filter = { addedByEmail: userEmail };
       const cursor = artifactsColl.find(filter);
       const result = await cursor.toArray();
