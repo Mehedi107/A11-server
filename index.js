@@ -24,9 +24,9 @@ const client = new MongoClient(uri, {
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
-    await client.connect();
+    // await client.connect();
     // Send a ping to confirm a successful connection
-    await client.db('admin').command({ ping: 1 });
+    // await client.db('admin').command({ ping: 1 });
     console.log(
       'Pinged your deployment. You successfully connected to MongoDB!'
     );
@@ -47,16 +47,16 @@ async function run() {
     });
 
     // Get all artifacts data form DB
-    app.get('/all-artifacts', async (req, res) => {
-      try {
-        const cursor = artifactsColl.find();
-        const result = await cursor.toArray();
-        res.send(result);
-      } catch (error) {
-        console.error('Error fetching artifacts:', error);
-        res.status(500).send({ message: 'Internal server error' });
-      }
-    });
+    // app.get('/all-artifacts', async (req, res) => {
+    //   try {
+    //     const cursor = artifactsColl.find();
+    //     const result = await cursor.toArray();
+    //     res.send(result);
+    //   } catch (error) {
+    //     console.error('Error fetching artifacts:', error);
+    //     res.status(500).send({ message: 'Internal server error' });
+    //   }
+    // });
 
     // Get single artifact data by ID form DB
     app.get('/artifacts/:id', async (req, res) => {
@@ -82,6 +82,19 @@ async function run() {
       }
     });
 
+    // Get artifacts by search character
+    app.get('/searched-artifacts', async (req, res) => {
+      const search = req.query.search;
+      const query = {
+        name: {
+          $regex: search,
+          $options: 'i',
+        },
+      };
+      const result = await artifactsColl.find(query).toArray();
+      res.send(result);
+    });
+
     // Update like count in DB
     app.patch('/artifacts/:id/like', async (req, res) => {
       try {
@@ -91,16 +104,20 @@ async function run() {
 
         // Check if the user already liked the artifact
         const artifact = await artifactsColl.findOne(filter);
-        if (artifact.likedBy && artifact.likedBy.includes(userEmail)) {
-          return res
-            .status(400)
-            .send({ error: 'You already liked this artifact' });
-        }
 
-        const update = {
-          $addToSet: { likedBy: userEmail },
-          $inc: { likeCount: 1 },
-        };
+        const alreadyLiked = artifact.likedBy?.includes(userEmail);
+
+        // Toggle logic
+        const update = alreadyLiked
+          ? {
+              $pull: { likedBy: userEmail }, // Remove the user from the likedBy array
+              $inc: { likeCount: -1 }, // Decrease the like count
+            }
+          : {
+              $addToSet: { likedBy: userEmail }, // Add the user to the likedBy array
+              $inc: { likeCount: 1 }, // Increase the like count
+            };
+
         const options = { returnDocument: 'after' };
 
         const result = await artifactsColl.findOneAndUpdate(
@@ -110,7 +127,26 @@ async function run() {
         );
         res.send(result);
       } catch (error) {
-        console.error('Error updating like count:', error);
+        // console.error('Error updating like count:', error);
+        res.status(500).send({ error: 'Server error' });
+      }
+    });
+
+    // Get artifacts liked by user liked
+    app.get('/liked-artifact/:email', async (req, res) => {
+      try {
+        const email = req.params.email;
+        // console.log('User email:', email);
+
+        const artifacts = await artifactsColl
+          .find({ likedBy: email })
+          .toArray();
+
+        // console.log(artifacts);
+
+        res.status(200).send(artifacts);
+      } catch (error) {
+        // console.error('Error fetching liked artifacts:', error);
         res.status(500).send({ error: 'Server error' });
       }
     });
