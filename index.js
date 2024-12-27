@@ -86,13 +86,27 @@ async function run() {
     app.patch('/artifacts/:id/like', async (req, res) => {
       try {
         const { id } = req.params;
+        const userEmail = req.body.email;
         const filter = { _id: new ObjectId(id) };
-        const update = { $inc: { likeCount: 1 } };
+
+        // Check if the user already liked the artifact
+        const artifact = await artifactsColl.findOne(filter);
+        if (artifact.likedBy && artifact.likedBy.includes(userEmail)) {
+          return res
+            .status(400)
+            .send({ error: 'You already liked this artifact' });
+        }
+
+        const update = {
+          $addToSet: { likedBy: userEmail },
+          $inc: { likeCount: 1 },
+        };
+        const options = { returnDocument: 'after' };
 
         const result = await artifactsColl.findOneAndUpdate(
           filter,
           update,
-          { returnDocument: 'after' } // Return the updated document
+          options // Return the updated document
         );
         res.send(result);
       } catch (error) {
