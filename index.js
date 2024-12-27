@@ -10,7 +10,11 @@ const port = process.env.PORT || 3000;
 
 // Middleware
 const corsOptions = {
-  origin: ['http://localhost:5173'],
+  origin: [
+    'http://localhost:5173',
+    'https://artifact-vault-916d6.web.app',
+    'https://artifact-vault-916d6.firebaseapp.com',
+  ],
   credentials: true,
 };
 
