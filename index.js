@@ -189,7 +189,9 @@ async function run() {
     app.get('/liked-artifact/:email', verifyToken, async (req, res) => {
       try {
         const decodedEmail = req?.user?.email;
-        const email = req.params.email;
+        const email = req?.params?.email;
+
+        console.log('like artifact', decodedEmail, email);
 
         if (decodedEmail !== email) {
           return res.status(401).send({ message: 'Unauthorize access' });
@@ -210,10 +212,12 @@ async function run() {
 
     // fetch user artifact data by email from DB
     app.get('/my-artifact/:email', verifyToken, async (req, res) => {
-      const userEmail = req.params.email;
+      const userEmail = req?.params?.email;
       const decodedEmail = req?.user?.email;
 
-      if (decodedEmail !== email) {
+      console.log(userEmail, decodedEmail);
+
+      if (decodedEmail !== userEmail) {
         return res.status(401).send({ message: 'Unauthorize access' });
       }
 
@@ -248,7 +252,7 @@ async function run() {
     // Delete artifact form DB
     app.delete('/artifacts/:id', async (req, res) => {
       const id = req.params.id;
-      console.log(id);
+      // console.log(id);
       const query = { _id: new ObjectId(id) };
       const result = await artifactsColl.deleteOne(query);
       res.send(result);
