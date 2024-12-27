@@ -24,12 +24,12 @@ const client = new MongoClient(uri, {
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
-    // await client.connect();
+    await client.connect();
     // Send a ping to confirm a successful connection
-    // await client.db('admin').command({ ping: 1 });
-    // console.log(
-    //   'Pinged your deployment. You successfully connected to MongoDB!'
-    // );
+    await client.db('admin').command({ ping: 1 });
+    console.log(
+      'Pinged your deployment. You successfully connected to MongoDB!'
+    );
 
     const artifactDB = client.db('artifact-vault');
     const artifactsColl = artifactDB.collection('artifacts');
@@ -37,7 +37,7 @@ async function run() {
     // Get 6 most liked artifacts data form DB
     app.get('/artifacts', async (req, res) => {
       try {
-        const cursor = artifactsColl.find().limit(6); // Limit to 6 documents
+        const cursor = artifactsColl.find().sort({ likeCount: -1 }).limit(6); // Limit to 6 documents
         const result = await cursor.toArray();
         res.send(result);
       } catch (error) {
@@ -82,7 +82,7 @@ async function run() {
       }
     });
 
-    // Update artifact data to DB
+    // Update like count in DB
     app.patch('/artifacts/:id/like', async (req, res) => {
       try {
         const { id } = req.params;
@@ -94,19 +94,14 @@ async function run() {
           update,
           { returnDocument: 'after' } // Return the updated document
         );
-
-        if (result.value) {
-          res.status(200).send(result.value); // Send the updated artifact back
-        } else {
-          res.status(404).send({ error: 'Artifact not found' });
-        }
+        res.send(result);
       } catch (error) {
         console.error('Error updating like count:', error);
         res.status(500).send({ error: 'Server error' });
       }
     });
 
-    // fetch user artifact data by email for DB
+    // fetch user artifact data by email from DB
     app.get('/my-artifact/:email', async (req, res) => {
       const userEmail = req.params.email;
       const filter = { addedByEmail: userEmail };
