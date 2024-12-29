@@ -43,9 +43,8 @@ const verifyToken = (req, res, next) => {
     if (err) return res.status(401).send({ message: 'Unauthorize access' });
 
     req.user = decoded;
+    next();
   });
-
-  next();
 };
 
 async function run() {
@@ -54,9 +53,9 @@ async function run() {
     // await client.connect();
     // Send a ping to confirm a successful connection
     // await client.db('admin').command({ ping: 1 });
-    console.log(
-      'Pinged your deployment. You successfully connected to MongoDB!'
-    );
+    // console.log(
+    //   'Pinged your deployment. You successfully connected to MongoDB!'
+    // );
 
     const artifactDB = client.db('artifact-vault');
     const artifactsColl = artifactDB.collection('artifacts');
