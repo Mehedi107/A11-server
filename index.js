@@ -94,21 +94,9 @@ async function run() {
         res.send(result);
       } catch (error) {
         console.error('Error fetching artifacts:', error);
-        res.status(500).send({ message: 'Internal server error' });
+        res.status(500).send({ message: 'Error fetching artifacts data' });
       }
     });
-
-    // Get all artifacts data form DB
-    // app.get('/all-artifacts', async (req, res) => {
-    //   try {
-    //     const cursor = artifactsColl.find();
-    //     const result = await cursor.toArray();
-    //     res.send(result);
-    //   } catch (error) {
-    //     console.error('Error fetching artifacts:', error);
-    //     res.status(500).send({ message: 'Internal server error' });
-    //   }
-    // });
 
     // Get single artifact data by ID form DB
     app.get('/artifacts/:id', async (req, res) => {
@@ -152,31 +140,26 @@ async function run() {
       try {
         const { id } = req.params;
         const userEmail = req.body.email;
-        const filter = { _id: new ObjectId(id) };
+        const query = { _id: new ObjectId(id) };
 
-        // Check if the user already liked the artifact
-        const artifact = await artifactsColl.findOne(filter);
+        const artifact = await artifactsColl.findOne(query);
+        const isLiked = artifact.likedBy.includes(userEmail);
+        let updatedDoc;
 
-        const alreadyLiked = artifact.likedBy?.includes(userEmail);
+        if (isLiked) {
+          updatedDoc = {
+            $inc: { likeCount: -1 },
+            $pull: { likedBy: userEmail },
+          };
+        } else {
+          updatedDoc = {
+            $inc: { likeCount: 1 },
+            $addToSet: { likedBy: userEmail },
+          };
+        }
 
-        // Toggle logic
-        const update = alreadyLiked
-          ? {
-              $pull: { likedBy: userEmail }, // Remove the user from the likedBy array
-              $inc: { likeCount: -1 }, // Decrease the like count
-            }
-          : {
-              $addToSet: { likedBy: userEmail }, // Add the user to the likedBy array
-              $inc: { likeCount: 1 }, // Increase the like count
-            };
+        const result = await artifactsColl.updateOne(query, updatedDoc);
 
-        const options = { returnDocument: 'after' };
-
-        const result = await artifactsColl.findOneAndUpdate(
-          filter,
-          update,
-          options // Return the updated document
-        );
         res.send(result);
       } catch (error) {
         // console.error('Error updating like count:', error);
@@ -190,7 +173,7 @@ async function run() {
         const decodedEmail = req?.user?.email;
         const email = req?.params?.email;
 
-        console.log('like artifact', decodedEmail, email);
+        // console.log('like artifact', decodedEmail, email);
 
         if (decodedEmail !== email) {
           return res.status(401).send({ message: 'Unauthorize access' });
@@ -214,7 +197,7 @@ async function run() {
       const userEmail = req?.params?.email;
       const decodedEmail = req?.user?.email;
 
-      console.log(userEmail, decodedEmail);
+      // console.log(userEmail, decodedEmail);
 
       if (decodedEmail !== userEmail) {
         return res.status(401).send({ message: 'Unauthorize access' });
@@ -268,5 +251,5 @@ app.get('/', (req, res) => {
 });
 
 app.listen(port, () => {
-  console.log(`Example app listening on port ${port}`);
+  // console.log(`Example app listening on port ${port}`);
 });
